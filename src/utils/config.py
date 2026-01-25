@@ -174,6 +174,7 @@ class Settings(BaseSettings):
 
     def model_post_init(self, __context) -> None:
         """Sync nested settings with flat environment variables."""
+        from datetime import timezone  # Import here or at top of file
         # OMI settings
         self.omi = OMISettings(
             api_key=self.omi_api_key or self.omi.api_key,
