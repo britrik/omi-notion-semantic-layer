@@ -4,7 +4,8 @@ Tests for the content classifier.
 
 from unittest.mock import MagicMock, patch
 
-import pytest`r`nimport sys
+import pytest
+import sys
 
 from src.models.insight import Classification, ContentCategory
 from src.semantic.classifier import ContentClassifier
@@ -53,7 +54,8 @@ class TestContentClassifier:
         """Test that model is not loaded initially."""
         assert classifier.is_loaded() is False
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_classify_success(
         self,
         mock_pipeline_func: MagicMock,
@@ -75,7 +77,8 @@ class TestContentClassifier:
         assert classifications[1].category == ContentCategory.MEETING
         assert classifications[1].confidence == 0.72
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_classify_filters_by_threshold(
         self,
         mock_pipeline_func: MagicMock,
@@ -94,7 +97,8 @@ class TestContentClassifier:
         assert len(classifications) == 1
         assert classifications[0].category == ContentCategory.ACTION_ITEM
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_classify_empty_text(
         self,
         mock_pipeline_func: MagicMock,
@@ -107,7 +111,8 @@ class TestContentClassifier:
         classifications = classifier.classify("   ")
         assert classifications == []
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_classify_top_k(
         self,
         mock_pipeline_func: MagicMock,
@@ -125,7 +130,8 @@ class TestContentClassifier:
 
         assert len(classifications) == 2
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_get_primary_category(
         self,
         mock_pipeline_func: MagicMock,
@@ -143,7 +149,8 @@ class TestContentClassifier:
 
         assert category == ContentCategory.DECISION
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_get_primary_category_none_when_below_threshold(
         self,
         mock_pipeline_func: MagicMock,
@@ -161,7 +168,8 @@ class TestContentClassifier:
 
         assert category is None
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_batch_classify(
         self,
         mock_pipeline_func: MagicMock,
@@ -182,7 +190,8 @@ class TestContentClassifier:
 
         assert len(results) == 2
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_batch_classify_handles_empty_texts(
         self,
         mock_pipeline_func: MagicMock,
@@ -220,7 +229,8 @@ class TestContentClassifier:
         category = ContentClassifier._label_to_category("Unknown Category")
         assert category is None
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_unload(
         self,
         mock_pipeline_func: MagicMock,
@@ -235,7 +245,8 @@ class TestContentClassifier:
         classifier.unload()
         assert classifier.is_loaded() is False
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_classify_with_hypothesis(
         self,
         mock_pipeline_func: MagicMock,
@@ -256,7 +267,8 @@ class TestContentClassifier:
 
         assert len(classifications) >= 0  # Just verify it runs
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_truncates_long_text(
         self,
         mock_pipeline_func: MagicMock,
@@ -278,7 +290,8 @@ class TestContentClassifier:
         call_args = mock_pipe.call_args[0][0]
         assert len(call_args) == 1024
 
-    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")`r`n    @patch("transformers.pipeline")
+    @pytest.mark.skipif("transformers" not in sys.modules, reason="transformers not installed")
+    @patch("transformers.pipeline")
     def test_sorted_by_confidence(
         self,
         mock_pipeline_func: MagicMock,
