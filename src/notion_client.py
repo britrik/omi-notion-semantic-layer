@@ -286,8 +286,9 @@ class NotionClient:
                 # Extract title
                 title = ""
                 title_prop = props.get("Title", {})
-                if title_prop.get("title"):
-                    title = title_prop["title"][0].get("plain_text", "")
+                title_array = title_prop.get("title", [])
+                if title_array and len(title_array) > 0:
+                    title = title_array[0].get("plain_text", "")
 
                 results.append({
                     "id": page_id,

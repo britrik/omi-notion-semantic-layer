@@ -138,7 +138,11 @@ class OMIClient:
 
         # Handle error responses
         if response.status_code == 429:
-            retry_after = int(response.headers.get("Retry-After", 60))
+            retry_after_header = response.headers.get("Retry-After", "60")
+            try:
+                retry_after = int(retry_after_header)
+            except (ValueError, TypeError):
+                retry_after = 60
             logger.warning(f"Rate limited, retry after {retry_after}s")
             raise RateLimitError(
                 "OMI API rate limit exceeded",
@@ -322,6 +326,9 @@ class OMIClient:
             elif isinstance(timestamp_str, datetime):
                 timestamp = timestamp_str
             else:
+                logger.warning(
+                    f"Missing or invalid timestamp in transcript data, using current time"
+                )
                 timestamp = datetime.now()
 
             return Transcript(
