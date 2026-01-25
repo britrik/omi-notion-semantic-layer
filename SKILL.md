@@ -26,6 +26,102 @@ This skill implements a collaborative PR review workflow that balances automatio
   - Go: `gofmt`, `golangci-lint`
   - Rust: `rustfmt`, `clippy`
 
+### Installing GitHub CLI (`gh`)
+
+**IMPORTANT**: The GitHub CLI is essential for this skill. Install it before proceeding.
+
+#### macOS
+```bash
+brew install gh
+```
+
+#### Linux (Debian/Ubuntu)
+```bash
+# Add GitHub CLI repository
+sudo mkdir -p -m 755 /etc/apt/keyrings
+wget -qO- https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo tee /etc/apt/keyrings/githubcli-archive-keyring.gpg > /dev/null
+sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+
+# Install
+sudo apt update
+sudo apt install gh
+```
+
+#### Linux (Fedora/RHEL/CentOS)
+```bash
+sudo dnf install gh
+```
+
+#### Linux (Manual Installation - No sudo required)
+```bash
+# Download and extract to user bin directory
+mkdir -p ~/bin
+cd /tmp
+wget https://github.com/cli/cli/releases/download/v2.62.0/gh_2.62.0_linux_amd64.tar.gz
+tar -xzf gh_2.62.0_linux_amd64.tar.gz
+cp gh_2.62.0_linux_amd64/bin/gh ~/bin/
+export PATH=~/bin:$PATH
+
+# Add to shell profile for persistence
+echo 'export PATH=~/bin:$PATH' >> ~/.bashrc
+```
+
+#### Windows
+```powershell
+# Using winget
+winget install --id GitHub.cli
+
+# Or using scoop
+scoop install gh
+
+# Or download installer from https://cli.github.com/
+```
+
+#### Verify Installation
+```bash
+gh --version
+# Should output: gh version 2.0.0 or higher
+```
+
+#### Authenticate with GitHub
+```bash
+# Interactive login
+gh auth login
+
+# Or using a personal access token
+export GITHUB_TOKEN="ghp_your_token_here"
+gh auth login --with-token <<< "$GITHUB_TOKEN"
+```
+
+**Token Scopes Required**:
+- `repo` (Full control of private repositories)
+- `workflow` (Update GitHub Action workflows)
+- `read:org` (Read org and team membership)
+
+#### Alternative: Using GitHub API Directly
+
+If `gh` installation is problematic, you can use the GitHub API with `curl`:
+
+```bash
+# Set token
+export GITHUB_TOKEN="ghp_your_token_here"
+
+# Example: List PRs
+curl -H "Authorization: Bearer $GITHUB_TOKEN" \
+     -H "Accept: application/vnd.github.v3+json" \
+     https://api.github.com/repos/OWNER/REPO/pulls
+
+# Example: Post comment
+curl -X POST \
+     -H "Authorization: Bearer $GITHUB_TOKEN" \
+     -H "Accept: application/vnd.github.v3+json" \
+     https://api.github.com/repos/OWNER/REPO/issues/PR_NUMBER/comments \
+     -d '{"body": "Comment text"}'
+```
+
+However, `gh` CLI is strongly recommended as it simplifies authentication and provides better error handling.
+
 ### Required Permissions
 - GitHub authentication configured (`gh auth login`)
 - Write access to the repository
