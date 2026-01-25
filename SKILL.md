@@ -904,11 +904,11 @@ All reviewers have approved!
 
             # Commit if changes exist
             if ! git diff --quiet; then
-                git add -A
-                git commit -m "fix: apply formatting fixes for review comments"
-                git push origin "$(git rev-parse --abbrev-ref HEAD)"
+                git add ${affected_files}
+                git commit -m "fix: apply formatting fixes for review comments" || exit 1
+                git push origin "$(git rev-parse --abbrev-ref HEAD)" || exit 1
 
-                gh pr comment "${PR_NUMBER}" --body "✅ Applied formatting fixes to reviewed files"
+                gh pr comment "${PR_NUMBER}" --body "✅ Applied formatting fixes to reviewed files" || echo "Warning: Failed to post comment"
             fi
         fi
     fi
