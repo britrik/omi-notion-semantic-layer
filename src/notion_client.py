@@ -275,7 +275,7 @@ class NotionClient:
                 database_id=self.database_id,
                 filter=query_filter,
                 page_size=limit,
-                sorts=[{"property": "last_edited_time", "direction": "descending"}],
+                sorts=[{"timestamp": "last_edited_time", "direction": "descending"}],
             )
 
             results = []
@@ -283,11 +283,11 @@ class NotionClient:
                 page_id = page.get("id", "")
                 props = page.get("properties", {})
 
-                # Extract title
+                # Extract title (with bounds check for empty arrays)
                 title = ""
                 title_prop = props.get("Title", {})
                 title_array = title_prop.get("title", [])
-                if title_array and len(title_array) > 0:
+                if title_array:
                     title = title_array[0].get("plain_text", "")
 
                 results.append({

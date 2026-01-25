@@ -115,26 +115,13 @@ class OMIClient:
         Raises:
             OMIAPIError: On API errors
             RateLimitError: When rate limited
+            httpx.TimeoutException: On timeout (for retry)
+            httpx.NetworkError: On network error (for retry)
         """
         url = f"{self.api_url}/{endpoint.lstrip('/')}"
         logger.debug(f"Making {method} request to {url}")
 
-        try:
-            response = self._client.request(method, endpoint, **kwargs)
-        except httpx.TimeoutException as e:
-            logger.error(f"Request timeout: {url}")
-            raise OMIAPIError(
-                "Request timed out",
-                endpoint=endpoint,
-                cause=e,
-            )
-        except httpx.NetworkError as e:
-            logger.error(f"Network error: {url} - {e}")
-            raise OMIAPIError(
-                "Network error occurred",
-                endpoint=endpoint,
-                cause=e,
-            )
+        response = self._client.request(method, endpoint, **kwargs)
 
         # Handle error responses
         if response.status_code == 429:
@@ -222,10 +209,11 @@ class OMIClient:
         response = self._make_request("GET", "/transcripts", params=params)
         data = response.json()
 
-        # Handle paginated response
-        transcripts_data = data.get("transcripts", data.get("results", []))
+        # Handle paginated response - check for list first
         if isinstance(data, list):
             transcripts_data = data
+        else:
+            transcripts_data = data.get("transcripts", data.get("results", []))
 
         transcripts = []
         for item in transcripts_data:
