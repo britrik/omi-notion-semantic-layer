@@ -1,0 +1,40 @@
+{
+  "transcript_id": "test_001",
+  "timestamp": "2026-01-06T10:00:00Z",
+  "duration": 300,
+  "participants": ["User", "Colleague"],
+  "content": "Let's discuss the project timeline. We need to finish the prototype by next Friday. I'll handle the frontend, and you can focus on the API integration. Sounds good. When should we schedule the demo? We should schedule a demo for stakeholders.",
+  "segments": [
+    {
+      "speaker": "User",
+      "text": "Let's discuss the project timeline.",
+      "timestamp": 0
+    },
+    {
+      "speaker": "User",
+      "text": "We need to finish the prototype by next Friday.",
+      "timestamp": 3
+    },
+    {
+      "speaker": "User",
+      "text": "I'll handle the frontend, and you can focus on the API integration.",
+      "timestamp": 8
+    },
+    {
+      "speaker": "Colleague",
+      "text": "Sounds good. When should we schedule the demo?",
+      "timestamp": 15
+    },
+    {
+      "speaker": "User",
+      "text": "We should schedule a demo for stakeholders.",
+      "timestamp": 18
+    }
+  ],
+  "metadata": {
+    "device_id": "omi_device_123",
+    "session_id": "session_456",
+    "language": "en",
+    "tags": ["project", "planning"]
+  }
+}
