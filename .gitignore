@@ -149,11 +149,11 @@ Desktop.ini
 .env.*.local
 
 # Log files
-logs/
 *.log
+/logs/*
 
 # Keep logs directory structure
-!logs/.gitkeep
+!/logs/.gitkeep
 
 # Temporary files
 tmp/
@@ -162,7 +162,8 @@ temp/
 *.temp
 
 # Model cache (can be large)
-models/
+# Note: /models/ is root-level only to not ignore src/models/
+/models/
 .cache/
 huggingface/
 
