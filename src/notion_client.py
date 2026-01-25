@@ -275,7 +275,7 @@ class NotionClient:
                 database_id=self.database_id,
                 filter=query_filter,
                 page_size=limit,
-                sorts=[{"timestamp": "last_edited_time", "direction": "descending"}],
+                sorts=[{"property": "last_edited_time", "direction": "descending"}],
             )
 
             results = []
