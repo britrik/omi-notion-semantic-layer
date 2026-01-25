@@ -516,13 +516,23 @@ class GitHubPRAutoResponder:
         for comment in comments:
             body_lower = comment.body.lower()
 
+            # Skip approval/positive comments
+            approval_patterns = ['lgtm', 'looks good', 'approved', '✅', 'nice work',
+                                'great', 'awesome', 'perfect', 'well done', '👍']
+            if any(pattern in body_lower for pattern in approval_patterns):
+                comment.category = 'informational'
+                result['informational'].append(comment)
+                continue
+
             # Check for escalation keywords (design decisions)
             if any(keyword in body_lower for keyword in self.escalation_keywords):
                 comment.category = 'design'
                 result['design'].append(comment)
-            # Check for formatting indicators
+            # Check for formatting indicators (with negative context)
             elif any(indicator in body_lower for indicator in
-                    ['formatting', 'style', 'indent', 'whitespace', 'lint']):
+                    ['formatting', 'style', 'indent', 'whitespace', 'lint']) and \
+                 any(negative in body_lower for negative in
+                     ['fix', 'need', 'should', 'must', 'please', 'incorrect', 'wrong', 'issue']):
                 comment.category = 'formatting'
                 result['formatting'].append(comment)
             else:
@@ -555,7 +565,7 @@ class GitHubPRAutoResponder:
         if affected_files:
             self._commit_and_push(list(affected_files), comments, list(formatters_used))
 
-    def _format_file(self, file_path: str) -> None:
+    def _format_file(self, file_path: str) -> List[str]:
         """Format a single file based on its extension"""
         formatters_run = []
 
@@ -682,10 +692,13 @@ Please respond to this comment directly, and I'll continue monitoring for feedba
 🤖 Automated by GitHub PR Auto-Responder
 """
 
-            subprocess.run([
-                'gh', 'pr', 'comment', str(self.pr_number),
-                '--body', escalation
-            ])
+            result = subprocess.run(
+                ['gh', 'pr', 'comment', str(self.pr_number), '--body', escalation],
+                capture_output=True,
+                check=False
+            )
+            if result.returncode != 0:
+                print(f"Warning: Failed to post escalation comment: {result.stderr.decode()}")
 
     def get_pr_author(self) -> str:
         """Get PR author username"""
@@ -756,10 +769,13 @@ All reviewers have approved!
 
 Great work! This PR is ready to merge.
 """
-        subprocess.run([
-            'gh', 'pr', 'comment', str(self.pr_number),
-            '--body', summary
-        ])
+        result = subprocess.run(
+            ['gh', 'pr', 'comment', str(self.pr_number), '--body', summary],
+            capture_output=True,
+            check=False
+        )
+        if result.returncode != 0:
+            print(f"Warning: Failed to post success comment: {result.stderr.decode()}")
 
         return {
             'status': 'approved',
@@ -776,10 +792,13 @@ Reached maximum iteration limit ({self.max_iterations}).
 
 Please review remaining comments manually.
 """
-        subprocess.run([
-            'gh', 'pr', 'comment', str(self.pr_number),
-            '--body', summary
-        ])
+        result = subprocess.run(
+            ['gh', 'pr', 'comment', str(self.pr_number), '--body', summary],
+            capture_output=True,
+            check=False
+        )
+        if result.returncode != 0:
+            print(f"Warning: Failed to post max iterations comment: {result.stderr.decode()}")
 
         return {
             'status': 'max_iterations_reached',
@@ -803,7 +822,7 @@ if __name__ == '__main__':
 #!/bin/bash
 # GitHub PR Auto-Responder - Bash Implementation
 
-set -euo pipefail
+set -eo pipefail  # Removed -u to allow error recovery with || patterns
 
 PR_NUMBER="${1}"
 REPOSITORY="${2}"
@@ -895,7 +914,7 @@ All reviewers have approved!
     fi
 
     # Check for design decision keywords
-    if grep -qiE "design|architecture|approach|why|rationale" /tmp/pr_comments.txt; then
+    if grep -qiE "design|architecture|approach|why|rationale" /tmp/pr_review_comments.txt; then
         echo "🤔 Design decisions detected - escalating to PR author"
 
         pr_author=$(gh pr view "${PR_NUMBER}" \
