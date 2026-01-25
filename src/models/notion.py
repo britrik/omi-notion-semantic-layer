@@ -5,7 +5,7 @@ These models handle the mapping between ProcessedInsight
 and Notion page properties.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 
 from pydantic import BaseModel, Field
@@ -250,6 +250,17 @@ class NotionPageProperties(BaseModel):
             "Processing Version": {
                 "rich_text": [{"text": {"content": self.processing_version}}]
             },
+            # Related Pages uses Notion's relation type - requires page IDs
+            # Only include if there are related pages to avoid empty relation errors
+            **(
+                {
+                    "Related Pages": {
+                        "relation": [{"id": page_id} for page_id in self.related_pages]
+                    }
+                }
+                if self.related_pages
+                else {}
+            ),
         }
 
     def to_notion_page_body(self, database_id: str) -> dict[str, Any]:

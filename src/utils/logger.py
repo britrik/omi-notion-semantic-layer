@@ -254,7 +254,9 @@ def get_contextual_logger(
 # Convenience function for quick setup from settings
 def setup_logging_from_settings() -> None:
     """Configure logging from application settings."""
-    # Import here to avoid circular imports
+    # NOTE: Import is intentionally inside this function to avoid circular imports.
+    # config.py imports logger.py for type hints, and logger.py needs config for settings.
+    # This lazy import pattern is the standard solution for circular dependency issues.
     from src.utils.config import get_settings
 
     settings = get_settings()

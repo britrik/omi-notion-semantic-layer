@@ -12,6 +12,10 @@ pydantic==2.5.0
 pydantic-settings==2.1.0
 
 # NLP & ML
+# NOTE: These versions are tested together. If updating, verify compatibility:
+# - spacy 3.7.x requires thinc 8.2.x
+# - transformers 4.36+ works with torch 2.1+
+# - Run `pip check` after installation to verify no conflicts
 spacy==3.7.2
 transformers==4.36.0
 torch==2.1.0
@@ -21,8 +25,9 @@ sentencepiece==0.1.99
 openai==1.7.0
 
 # Optional: LangChain for advanced pipelines
-langchain==0.1.0
-langchain-core==0.1.0
+# Updated to latest stable version for security and features
+langchain==0.3.14
+langchain-core==0.3.28
 
 # Web framework (for webhook handling)
 fastapi==0.109.0
