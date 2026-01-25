@@ -304,6 +304,8 @@ class GitHubPRAutoResponder:
         self.check_interval = kwargs.get('check_interval', 300)
         self.max_iterations = kwargs.get('max_iterations', 10)
         self.escalation_keywords = kwargs.get('escalation_keywords', self._default_keywords())
+        self.reviewers_required = kwargs.get('reviewers_required', [])
+        self.auto_fix_enabled = kwargs.get('auto_fix_enabled', True)
         self.iteration_count = 0
 
     def _default_keywords(self) -> List[str]:
@@ -352,24 +354,58 @@ class GitHubPRAutoResponder:
              '--repo', self.repository,
              '--json', 'reviews,comments'],
             capture_output=True,
-            text=True
+            text=True,
+            check=False
         )
-        data = json.loads(result.stdout)
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to fetch PR data: {result.stderr}")
+
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON response from gh CLI: {e}")
 
         # Transform to PRComment objects
         comments = []
-        # Process reviews
+
+        # Process review comments (inline code review comments)
         for review in data.get('reviews', []):
+            # Defensive check for review structure
+            if not isinstance(review, dict):
+                continue
+
+            author_login = review.get('author', {}).get('login', 'unknown')
+
             for comment in review.get('comments', []):
+                if not isinstance(comment, dict):
+                    continue
+
                 comments.append(PRComment(
-                    id=comment['id'],
-                    author=review['author']['login'],
-                    body=comment['body'],
+                    id=str(comment.get('id', '')),
+                    author=author_login,
+                    body=comment.get('body', ''),
                     path=comment.get('path'),
                     line=comment.get('line'),
-                    url=comment['url'],
+                    url=comment.get('url', ''),
                     category='unknown'
                 ))
+
+        # Process top-level PR conversation comments (not inline)
+        for comment in data.get('comments', []):
+            if not isinstance(comment, dict):
+                continue
+
+            user_info = comment.get('user', {})
+            comments.append(PRComment(
+                id=str(comment.get('id', '')),
+                author=user_info.get('login', 'unknown'),
+                body=comment.get('body', ''),
+                path=None,  # Top-level comments don't have file paths
+                line=None,
+                url=comment.get('html_url', ''),
+                category='unknown'
+            ))
 
         return comments
 
@@ -401,53 +437,132 @@ class GitHubPRAutoResponder:
 
     def apply_formatting_fixes(self, comments: List[PRComment]) -> None:
         """Apply automatic formatting fixes"""
+        if not self.auto_fix_enabled:
+            print("Auto-fix disabled, skipping formatting fixes")
+            return
+
         affected_files = set()
+        formatters_used = set()
 
         for comment in comments:
             if comment.path:
                 affected_files.add(comment.path)
 
         for file_path in affected_files:
-            self._format_file(file_path)
+            try:
+                formatters = self._format_file(file_path)
+                formatters_used.update(formatters)
+            except Exception as e:
+                print(f"Error formatting {file_path}: {e}")
+                continue
 
         if affected_files:
-            self._commit_and_push(list(affected_files), comments)
+            self._commit_and_push(list(affected_files), comments, list(formatters_used))
 
     def _format_file(self, file_path: str) -> None:
         """Format a single file based on its extension"""
-        if file_path.endswith('.py'):
-            subprocess.run(['black', file_path])
-            subprocess.run(['isort', file_path])
-        elif file_path.endswith(('.js', '.ts', '.tsx', '.jsx')):
-            subprocess.run(['prettier', '--write', file_path])
-            subprocess.run(['eslint', '--fix', file_path])
-        elif file_path.endswith('.go'):
-            subprocess.run(['gofmt', '-w', file_path])
-        elif file_path.endswith('.rs'):
-            subprocess.run(['rustfmt', file_path])
+        formatters_run = []
 
-    def _commit_and_push(self, files: List[str], comments: List[PRComment]) -> None:
+        try:
+            if file_path.endswith('.py'):
+                result = subprocess.run(['black', file_path], capture_output=True, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: black failed on {file_path}: {result.stderr.decode()}")
+                else:
+                    formatters_run.append('black')
+
+                result = subprocess.run(['isort', file_path], capture_output=True, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: isort failed on {file_path}: {result.stderr.decode()}")
+                else:
+                    formatters_run.append('isort')
+
+            elif file_path.endswith(('.js', '.ts', '.tsx', '.jsx')):
+                result = subprocess.run(['prettier', '--write', file_path], capture_output=True, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: prettier failed on {file_path}: {result.stderr.decode()}")
+                else:
+                    formatters_run.append('prettier')
+
+                result = subprocess.run(['eslint', '--fix', file_path], capture_output=True, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: eslint failed on {file_path}: {result.stderr.decode()}")
+                else:
+                    formatters_run.append('eslint')
+
+            elif file_path.endswith('.go'):
+                result = subprocess.run(['gofmt', '-w', file_path], capture_output=True, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: gofmt failed on {file_path}: {result.stderr.decode()}")
+                else:
+                    formatters_run.append('gofmt')
+
+            elif file_path.endswith('.rs'):
+                result = subprocess.run(['rustfmt', file_path], capture_output=True, check=False)
+                if result.returncode != 0:
+                    print(f"Warning: rustfmt failed on {file_path}: {result.stderr.decode()}")
+                else:
+                    formatters_run.append('rustfmt')
+
+        except FileNotFoundError as e:
+            print(f"Error: Formatter not found: {e}")
+            raise
+
+        return formatters_run
+
+    def _commit_and_push(self, files: List[str], comments: List[PRComment], formatters_used: List[str]) -> None:
         """Commit and push formatting changes"""
-        subprocess.run(['git', 'add'] + files)
+        # Check if there are actually changes to commit
+        diff_check = subprocess.run(['git', 'diff', '--quiet'] + files, check=False)
+        if diff_check.returncode == 0:
+            print("No formatting changes detected, skipping commit")
+            return
 
-        comment_urls = '\n'.join([f"- {c.url}" for c in comments])
+        result = subprocess.run(['git', 'add'] + files, capture_output=True, check=False)
+        if result.returncode != 0:
+            print(f"Warning: git add failed: {result.stderr.decode()}")
+            return
+
+        comment_urls = '\n'.join([f"- {c.url}" for c in comments if c.url])
+        formatters_list = ', '.join(formatters_used) if formatters_used else 'automated formatters'
+
         commit_msg = f"""fix: apply formatting fixes for review comments
 
 Addresses formatting issues raised in review:
 {comment_urls}
 
-Applied automated formatting."""
+Applied: {formatters_list}"""
 
-        subprocess.run(['git', 'commit', '-m', commit_msg])
+        result = subprocess.run(
+            ['git', 'commit', '-m', commit_msg],
+            capture_output=True,
+            check=False
+        )
+        if result.returncode != 0:
+            print(f"Error: git commit failed: {result.stderr.decode()}")
+            return
 
         # Get current branch
-        branch = subprocess.run(
+        branch_result = subprocess.run(
             ['git', 'rev-parse', '--abbrev-ref', 'HEAD'],
             capture_output=True,
-            text=True
-        ).stdout.strip()
+            text=True,
+            check=False
+        )
+        if branch_result.returncode != 0:
+            print(f"Error: Failed to get current branch: {branch_result.stderr}")
+            return
 
-        subprocess.run(['git', 'push', 'origin', branch])
+        branch = branch_result.stdout.strip()
+
+        result = subprocess.run(
+            ['git', 'push', 'origin', branch],
+            capture_output=True,
+            check=False
+        )
+        if result.returncode != 0:
+            print(f"Error: git push failed: {result.stderr.decode()}")
+            raise RuntimeError(f"Failed to push changes: {result.stderr.decode()}")
 
     def escalate_to_author(self, comments: List[PRComment]) -> None:
         """Escalate design decisions to PR author"""
@@ -483,20 +598,55 @@ Please respond to this comment directly, and I'll continue monitoring for feedba
              '--repo', self.repository,
              '--json', 'author'],
             capture_output=True,
-            text=True
+            text=True,
+            check=False
         )
-        return json.loads(result.stdout)['author']['login']
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to fetch PR author: {result.stderr}")
+
+        try:
+            data = json.loads(result.stdout)
+            return data.get('author', {}).get('login', 'unknown')
+        except (json.JSONDecodeError, KeyError) as e:
+            raise RuntimeError(f"Invalid response when fetching PR author: {e}")
 
     def check_all_approved(self) -> bool:
         """Check if all required reviewers have approved"""
         result = subprocess.run(
             ['gh', 'pr', 'view', str(self.pr_number),
              '--repo', self.repository,
-             '--json', 'reviewDecision'],
+             '--json', 'reviewDecision,reviews'],
             capture_output=True,
-            text=True
+            text=True,
+            check=False
         )
-        decision = json.loads(result.stdout).get('reviewDecision')
+
+        if result.returncode != 0:
+            raise RuntimeError(f"Failed to check approval status: {result.stderr}")
+
+        try:
+            data = json.loads(result.stdout)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid JSON when checking approvals: {e}")
+
+        # Check GitHub's overall review decision
+        decision = data.get('reviewDecision')
+
+        # If reviewers_required is specified, verify those specific reviewers
+        if hasattr(self, 'reviewers_required') and self.reviewers_required:
+            approved_reviewers = set()
+            for review in data.get('reviews', []):
+                if review.get('state') == 'APPROVED':
+                    author = review.get('author', {}).get('login')
+                    if author:
+                        approved_reviewers.add(author)
+
+            # Check if all required reviewers have approved
+            required_set = set(self.reviewers_required)
+            return required_set.issubset(approved_reviewers)
+
+        # Otherwise, rely on GitHub's decision
         return decision == 'APPROVED'
 
     def complete_success(self) -> Dict:
@@ -593,27 +743,58 @@ All reviewers have approved!
         exit 0
     fi
 
-    # Fetch comments
+    # Fetch review comments with file paths
+    gh pr view "${PR_NUMBER}" \
+        --repo "${REPOSITORY}" \
+        --json reviews \
+        --jq '.reviews[].comments[]? | "\(.path)|\(.body)"' > /tmp/pr_review_comments.txt
+
+    # Fetch general PR comments
     gh pr view "${PR_NUMBER}" \
         --repo "${REPOSITORY}" \
         --json comments \
-        --jq '.comments[] | "\(.author.login)|\(.body)"' > /tmp/pr_comments.txt
+        --jq '.comments[] | "|\(.body)"' >> /tmp/pr_review_comments.txt
 
-    # Process formatting issues (simplified)
-    if grep -qi "formatting\|style\|lint" /tmp/pr_comments.txt; then
+    # Process formatting issues (only on files mentioned in reviews)
+    if grep -qi "formatting\|style\|lint" /tmp/pr_review_comments.txt; then
         echo "🔧 Applying formatting fixes..."
 
-        # Run formatters based on repository
-        find . -name "*.py" -exec black {} +
-        find . -name "*.py" -exec isort {} +
+        # Extract unique file paths from review comments that mention formatting
+        affected_files=$(grep -i "formatting\|style\|lint" /tmp/pr_review_comments.txt | \
+            cut -d'|' -f1 | \
+            grep -v '^$' | \
+            sort -u)
 
-        # Commit if changes exist
-        if ! git diff --quiet; then
-            git add -A
-            git commit -m "fix: apply formatting fixes for review comments"
-            git push origin "$(git rev-parse --abbrev-ref HEAD)"
+        if [ -n "${affected_files}" ]; then
+            # Run formatters only on affected files
+            for file in ${affected_files}; do
+                if [ -f "${file}" ]; then
+                    case "${file}" in
+                        *.py)
+                            black "${file}" 2>&1 || echo "Warning: black failed on ${file}"
+                            isort "${file}" 2>&1 || echo "Warning: isort failed on ${file}"
+                            ;;
+                        *.js|*.ts|*.tsx|*.jsx)
+                            prettier --write "${file}" 2>&1 || echo "Warning: prettier failed on ${file}"
+                            ;;
+                        *.go)
+                            gofmt -w "${file}" 2>&1 || echo "Warning: gofmt failed on ${file}"
+                            ;;
+                        *.rs)
+                            rustfmt "${file}" 2>&1 || echo "Warning: rustfmt failed on ${file}"
+                            ;;
+                    esac
+                fi
+            done
 
-            gh pr comment "${PR_NUMBER}" --body "✅ Applied formatting fixes"
+            # Commit if changes exist
+            if ! git diff --quiet; then
+                git add -A
+                git commit -m "fix: apply formatting fixes for review comments"
+                git push origin "$(git rev-parse --abbrev-ref HEAD)"
+
+                gh pr comment "${PR_NUMBER}" --body "✅ Applied formatting fixes to reviewed files"
+            fi
         fi
     fi
 
@@ -778,32 +959,95 @@ jobs:
 # pr_service.py - Run as a continuous service
 from github_pr_auto_responder import GitHubPRAutoResponder
 import os
-from threading import Thread
+import time
+import subprocess
+import json
+from threading import Thread, Lock
+from typing import Set, Tuple
+
+# Global tracking to prevent duplicate operations
+_active_prs_lock = Lock()
+_active_prs: Set[Tuple[str, int]] = set()
 
 def monitor_repository(repo: str):
     """Monitor all open PRs in a repository"""
     while True:
-        # Get all open PRs
-        result = subprocess.run(
-            ['gh', 'pr', 'list', '--repo', repo, '--json', 'number'],
-            capture_output=True, text=True
-        )
-        prs = json.loads(result.stdout)
+        try:
+            # Get all open PRs
+            result = subprocess.run(
+                ['gh', 'pr', 'list', '--repo', repo, '--json', 'number'],
+                capture_output=True,
+                text=True,
+                check=False
+            )
 
-        # Launch responder for each PR
-        for pr in prs:
-            thread = Thread(target=lambda: GitHubPRAutoResponder(
-                pr_number=pr['number'],
-                repository=repo
-            ).run())
-            thread.start()
+            if result.returncode != 0:
+                print(f"Error fetching PRs for {repo}: {result.stderr}")
+                time.sleep(600)
+                continue
+
+            prs = json.loads(result.stdout)
+
+            # Launch responder for each PR (with deduplication)
+            for pr in prs:
+                pr_number = pr.get('number')
+                if not pr_number:
+                    continue
+
+                pr_key = (repo, pr_number)
+
+                # Check if already being monitored
+                with _active_prs_lock:
+                    if pr_key in _active_prs:
+                        continue  # Skip, already being handled
+                    _active_prs.add(pr_key)
+
+                # Launch monitoring thread for this PR
+                def run_responder(repository, pr_num, key):
+                    try:
+                        GitHubPRAutoResponder(
+                            pr_number=pr_num,
+                            repository=repository
+                        ).run()
+                    finally:
+                        # Remove from active set when done
+                        with _active_prs_lock:
+                            _active_prs.discard(key)
+
+                thread = Thread(
+                    target=run_responder,
+                    args=(repo, pr_number, pr_key),
+                    daemon=True
+                )
+                thread.start()
+
+        except Exception as e:
+            print(f"Error in monitor_repository for {repo}: {e}")
 
         time.sleep(600)  # Check for new PRs every 10 minutes
 
 if __name__ == '__main__':
     repos = os.getenv('WATCHED_REPOS', '').split(',')
+    repos = [r.strip() for r in repos if r.strip()]
+
+    if not repos:
+        print("No repositories configured in WATCHED_REPOS")
+        exit(1)
+
+    print(f"Starting PR auto-responder service for: {repos}")
+
+    threads = []
     for repo in repos:
-        Thread(target=monitor_repository, args=(repo,)).start()
+        thread = Thread(target=monitor_repository, args=(repo,), daemon=True)
+        thread.start()
+        threads.append(thread)
+
+    # Keep main thread alive
+    try:
+        for thread in threads:
+            thread.join()
+    except KeyboardInterrupt:
+        print("\nShutting down PR auto-responder service")
 ```
 
 ## Testing
