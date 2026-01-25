@@ -100,7 +100,7 @@ class NotionPageProperties(BaseModel):
     # Dates
     date: datetime = Field(description="Original conversation date")
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When added to Notion"
     )
 
