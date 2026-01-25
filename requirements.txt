@@ -1,0 +1,42 @@
+# OMI-to-Notion Semantic Intelligence Layer
+# Python Dependencies
+
+# Core APIs
+notion-client==2.2.1
+requests==2.31.0
+httpx==0.26.0
+
+# Configuration
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# NLP & ML
+spacy==3.7.2
+transformers==4.36.0
+torch==2.1.0
+sentencepiece==0.1.99
+
+# Optional: OpenAI for enhanced NLP
+openai==1.7.0
+
+# Optional: LangChain for advanced pipelines
+langchain==0.1.0
+langchain-core==0.1.0
+
+# Web framework (for webhook handling)
+fastapi==0.109.0
+uvicorn==0.27.0
+
+# Testing
+pytest==7.4.0
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+pytest-asyncio==0.23.0
+
+# Development
+ruff==0.1.0
+mypy==1.8.0
+
+# Utilities
+tenacity==8.2.0
