@@ -367,7 +367,7 @@ class ProcessedInsight(BaseModel):
 
     # Processing metadata
     processed_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc),
         description="When processing completed"
     )
     processing_version: str = Field(
