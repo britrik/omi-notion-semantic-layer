@@ -187,8 +187,8 @@ class EnrichmentModule:
         """Extract potential tags from content using simple NLP."""
         tags: Counter[str] = Counter()
 
-        # Extract words (simple tokenization)
-        words = re.findall(r"\b[a-zA-Z]{3,}\b", content.lower())
+        # Extract words (simple tokenization with unicode support)
+        words = re.findall(r"\b\w{3,}\b", content.lower(), re.UNICODE)
 
         # Count word frequencies
         word_freq = Counter(words)
@@ -235,8 +235,11 @@ class EnrichmentModule:
         score = 0.0
         content_lower = insight.original_content.lower()
 
-        # Check for priority keywords
+        # Check for priority keywords (highest priority level wins)
+        keyword_found = False
         for level, keywords in self._priority_keywords.items():
+            if keyword_found:
+                break
             for keyword in keywords:
                 if keyword in content_lower:
                     if level == PriorityLevel.CRITICAL:
@@ -245,7 +248,8 @@ class EnrichmentModule:
                         score += 2.0
                     elif level == PriorityLevel.MEDIUM:
                         score += 1.0
-                    break  # Only count first match per level
+                    keyword_found = True
+                    break  # Exit inner loop
 
         # Category-based priority boost
         category_boosts = {

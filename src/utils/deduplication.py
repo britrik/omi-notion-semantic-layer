@@ -61,11 +61,18 @@ class DuplicateDetector:
         Returns:
             SHA-256 hash of normalized content.
         """
+        # Check cache first
+        if content in self._hash_cache:
+            return self._hash_cache[content]
+
         # Normalize content
         normalized = self._normalize_text(content)
 
         # Calculate hash
         content_hash = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
+
+        # Store in cache
+        self._hash_cache[content] = content_hash
 
         return content_hash
 
