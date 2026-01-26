@@ -144,6 +144,9 @@ class EntityExtractor:
                 entities.extend(self._extract_projects(text))
                 entities.extend(self._extract_topics(text, doc))
 
+            # Filter entities by min_confidence
+            entities = [e for e in entities if e.confidence >= self.min_confidence]
+
             # Deduplicate entities
             entities = self._deduplicate_entities(entities)
 

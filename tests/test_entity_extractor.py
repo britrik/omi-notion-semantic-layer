@@ -2,12 +2,15 @@
 Tests for the entity extractor.
 """
 
+import sys
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from src.models.insight import Entity, EntityType
 from src.semantic.entity_extractor import EntityExtractor
+
+spacy_not_installed = "spacy" not in sys.modules
 
 
 class MockSpacyEntity:
@@ -68,6 +71,7 @@ class TestEntityExtractor:
         """Test that model is not loaded initially."""
         assert extractor.is_loaded() is False
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_entities_success(
         self,
@@ -93,6 +97,7 @@ class TestEntityExtractor:
         assert len(person_entities) >= 1
         assert any(e.text == "John Smith" for e in person_entities)
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_entities_empty_text(
         self,
@@ -106,6 +111,7 @@ class TestEntityExtractor:
         entities = extractor.extract_entities("   ")
         assert entities == []
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_entities_by_type(
         self,
@@ -130,6 +136,7 @@ class TestEntityExtractor:
         for entity in entities:
             assert entity.type == EntityType.PERSON
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_people(
         self,
@@ -151,6 +158,7 @@ class TestEntityExtractor:
         assert "Bob" in people
         assert "Acme" not in people
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_organizations(
         self,
@@ -170,6 +178,7 @@ class TestEntityExtractor:
         assert "Google" in orgs
         assert "Microsoft" in orgs
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_dates(
         self,
@@ -189,6 +198,7 @@ class TestEntityExtractor:
         assert "next Friday" in dates
         assert "January 15" in dates
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_get_entity_summary(
         self,
@@ -210,6 +220,7 @@ class TestEntityExtractor:
         assert EntityType.ORGANIZATION.value in summary
         assert EntityType.DATE.value in summary
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_deduplicates_entities(
         self,
@@ -229,6 +240,7 @@ class TestEntityExtractor:
         person_entities = [e for e in entities if e.type == EntityType.PERSON]
         assert len(person_entities) == 1
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_projects(
         self,
@@ -247,6 +259,7 @@ class TestEntityExtractor:
         project_entities = [e for e in entities if e.type == EntityType.PROJECT]
         assert len(project_entities) >= 1
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_extract_topics(
         self,
@@ -268,6 +281,7 @@ class TestEntityExtractor:
         assert any("deadline" in t.lower() for t in topic_texts) or \
                any("budget" in t.lower() for t in topic_texts)
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_unload(
         self,
@@ -285,6 +299,7 @@ class TestEntityExtractor:
         extractor.unload()
         assert extractor.is_loaded() is False
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_entity_normalization(
         self,
@@ -304,6 +319,7 @@ class TestEntityExtractor:
         assert len(person_entities) == 1
         assert person_entities[0].normalized == "John Smith"
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_include_custom_false(
         self,
@@ -326,6 +342,7 @@ class TestEntityExtractor:
         project_entities = [e for e in entities if e.type == EntityType.PROJECT]
         assert len(project_entities) == 0
 
+    @pytest.mark.skipif(spacy_not_installed, reason="spacy not installed")
     @patch("spacy.load")
     def test_spacy_label_mapping(
         self,
