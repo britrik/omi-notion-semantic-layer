@@ -5,6 +5,7 @@ This package contains:
 - config: Configuration management with Pydantic
 - logger: Structured logging setup
 - exceptions: Custom exception classes
+- deduplication: Duplicate detection utilities
 """
 
 from src.utils.config import get_settings, Settings
@@ -16,6 +17,11 @@ from src.utils.exceptions import (
     ProcessingError,
     ValidationError,
     ConfigurationError,
+)
+from src.utils.deduplication import (
+    DuplicateDetector,
+    get_content_fingerprint,
+    calculate_fingerprint_similarity,
 )
 
 __all__ = [
@@ -29,4 +35,7 @@ __all__ = [
     "ProcessingError",
     "ValidationError",
     "ConfigurationError",
+    "DuplicateDetector",
+    "get_content_fingerprint",
+    "calculate_fingerprint_similarity",
 ]
